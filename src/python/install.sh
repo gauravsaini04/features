@@ -809,6 +809,28 @@ else
     PYTHON_SRC=$(which python)
 fi
 
+# for vulnerability patching - https://github.com/advisories/GHSA-cx63-2mw6-8hw5
+patch_setuptools() {
+    if [ "$(grep '^ID=' /etc/os-release | cut -d'=' -f2)" != "debian" ]; then
+        # Check if pipx is installed
+        export PYTHONUSERBASE=/tmp/pip-tmp
+        export PIP_CACHE_DIR=/tmp/pip-tmp/cache
+        PIPX_DIR=""
+        if ! type pipx > /dev/null 2>&1; then
+            if python_is_externally_managed ${PYTHON_SRC}; then
+                check_packages pipx
+                "${PIPX_DIR}pipx" install 'setuptools==70.0.0'
+            else 
+                pip install setuptools==70.0.0
+            fi
+        fi
+    else 
+        install_user_package "$INSTALL_UNDER_ROOT" "setuptools==70.0.0"
+    fi
+}
+
+patch_setuptools
+
 # Install Python tools if needed
 if [[ "${INSTALL_PYTHON_TOOLS}" = "true" ]] && [[ -n "${PYTHON_SRC}" ]]; then
     echo 'Installing Python tools...'
@@ -867,7 +889,7 @@ if [[ "${INSTALL_PYTHON_TOOLS}" = "true" ]] && [[ -n "${PYTHON_SRC}" ]]; then
                 mkdir -p /tmp/setuptools_downloaded
                 cd /tmp/setuptools_downloaded
                 # download the source distribution for setuptools using pip
-                pip download setuptools==65.5.1 --no-binary :all:
+                pip download setuptools==70.0.0 --no-binary :all:
                 # extract the filename of the setuptools-*.tar.gz file
                 filename=$(find . -maxdepth 1 -type f)
                 # create a directory to store unpacked contents of the source distribution
@@ -875,15 +897,15 @@ if [[ "${INSTALL_PYTHON_TOOLS}" = "true" ]] && [[ -n "${PYTHON_SRC}" ]]; then
                 # extract the contents inside the new directory
                 tar -xzf $filename -C /tmp/setuptools_src_dist
                 # move to the setuptools-* directory inside /setuptools_src_dist
-                cd /tmp/setuptools_src_dist/setuptools-65.5.1/
+                cd /tmp/setuptools_src_dist/setuptools-70.0.0/
                 # look for setup.py file in the current directory and create a wheel file
                 python setup.py bdist_wheel
                 # move inside the dist directory in pwd
                 cd dist
                 # copy this file to the ensurepip/_bundled directory
-                cp setuptools-65.5.1-py3-none-any.whl /usr/local/lib/python${PY_MAJOR_MINOR_VER}/ensurepip/_bundled/
+                cp setuptools-70.0.0-py3-none-any.whl /usr/local/lib/python${PY_MAJOR_MINOR_VER}/ensurepip/_bundled/
                 # replace the version in __init__.py file with the installed version
-                sed -i 's/_SETUPTOOLS_VERSION = \"65\.5\.0\"/_SETUPTOOLS_VERSION = "65.5.1"/g' /usr/local/lib/"python${PY_MAJOR_MINOR_VER}"/ensurepip/__init__.py
+                sed -i 's/_SETUPTOOLS_VERSION = \"65\.5\.0\"/_SETUPTOOLS_VERSION = "70.0.0"/g' /usr/local/lib/"python${PY_MAJOR_MINOR_VER}"/ensurepip/__init__.py
                 # cleanup created dir's
                 rm -rf /tmp/setuptools_downloaded /tmp/setuptools_src_dist
             fi
